@@ -1,14 +1,14 @@
 "use client";
 import { Program, AnchorProvider, setProvider, Wallet } from "@coral-xyz/anchor";
 import { useConnection, useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import idl from '@/../vote/target/idl/vote.json';
 import type { Vote } from '@/../vote/target/types/vote';
 import { Button } from "antd";
 import { useEffect, useState } from "react";
 
 export default function Page() {
-	const { publicKey, sendTransaction } = useWallet();
+	const PROGRAM_ID = new PublicKey("J7GcJ4qmKtj1KD8N56pPUtDuV3Njm5DEXhe92tXhbKzM");
 	const { connection } = useConnection();
 	const [ poll, setPoll ] = useState<any>(null);
 	const wallet = useAnchorWallet();
@@ -20,33 +20,25 @@ export default function Page() {
 	 const program = new Program(idl as Vote, provider);
 
 	const initializeAccount = async () => {
-		const poll = Keypair.generate();
-		const value = await program.account.pollId.all();
-		let transaction;
-		if (value.length == 0) {
-			const pollId = Keypair.generate();
-			transaction = await program.methods
+		const [pollPDA] = await PublicKey.findProgramAddress(
+			[Buffer.from("poll"), Buffer.from("Fesse")], 
+			program.programId
+		);
+		console.log("pollPDA:", pollPDA.toString());
+		const transaction = await program.methods
 			.createPoll("Fesse", "caca")
-			.accounts({poll: poll.publicKey, pollId: pollId.publicKey, signer: wallet.publicKey})
-			.signers([poll, pollId])
+			.accountsStrict({
+				poll: pollPDA,
+				signer: wallet.publicKey,
+				systemProgram: SystemProgram.programId, // Notez systemProgram en camelCase
+			})
 			.rpc();
-		}
-		// else {
-		// 	const pollId = value[0].publicKey;
-		// 	transaction = await program.methods
-		// 	.createPoll("Fesse", "caca")
-		// 	.accounts({poll: poll.publicKey, pollId: pollId, signer: wallet.publicKey})
-		// 	.signers([poll, value[0]])
-		// 	.rpc();
-		// }
-
 		console.log(`Transaction signature: ${transaction}`);
-		console.log(`Compte initialisé avec l'adresse: ${poll.publicKey}`);
+		console.log(`Compte initialisé avec l'adresse: ${pollPDA}`);
 	};
+
 	const fetchData = async () => {
 		const data = await program.account.poll.all();
-		const value = await program.account.pollId.all();
-		console.log("value:", value.length);
 		setPoll(data);
 		console.log(poll);
 	};
